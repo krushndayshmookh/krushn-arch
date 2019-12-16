@@ -14,16 +14,46 @@ then
 fi
 
 # Filesystem mount warning
-echo "This script assumes that file system is already partitioned and formatted"
-echo "/dev/sda2 will be mounted as /"
-echo "/dev/sda1 will be mounted as /boot/efi/"
-echo "/dev/sda3 will be used as swap"
+echo "This script will create and format the partitions as follows:"
+echo "/dev/sda1 - 512Mib will be mounted as /boot/efi"
+echo "/dev/sda2 - 8GiB will be used as swap"
+echo "/dev/sda3 - rest of space will be mounted as /"
 read -p 'Continue? [y/N]: ' fsok
 if ! [ $fsok = 'y' ] && ! [ $fsok = 'Y' ]
 then 
     echo "Edit the script to continue..."
     exit
 fi
+
+# to create the partitions programatically (rather than manually)
+# https://superuser.com/a/984637
+sed -e 's/\s*\([\+0-9a-zA-Z]*\).*/\1/' << EOF | fdisk ${TGTDEV}
+  o # clear the in memory partition table
+  n # new partition
+  p # primary partition
+  1 # partition number 1
+    # default - start at beginning of disk 
+  +512M # 512 MB boot parttion
+  n # new partition
+  p # primary partition
+  2 # partion number 2
+    # default, start immediately after preceding partition
+  +8G # 8 GB swap parttion
+  n # new partition
+  p # primary partition
+  3 # partion number 3
+    # default, start immediately after preceding partition
+    # default, extend partition to end of disk
+  a # make a partition bootable
+  1 # bootable partition is partition 1 -- /dev/sda1
+  p # print the in-memory partition table
+  w # write the partition table
+  q # and we're done
+EOF
+
+# Format the partitions
+mkfs.ext4 /dev/sda3
+mkfs.fat -F32 /dev/sda1
 
 # Set up time
 timedatectl set-ntp true
@@ -34,11 +64,11 @@ pacman-key --populate archlinux
 pacman-key --refresh-keys
 
 # Mount the partitions
-mount /dev/sda2 /mnt
+mount /dev/sda3 /mnt
 mkdir -pv /mnt/boot/efi
 mount /dev/sda1 /mnt/boot/efi
-mkswap /dev/sda3
-swapon /dev/sda3
+mkswap /dev/sda2
+swapon /dev/sda2
 
 # Install Arch Linux
 echo "Starting install.."
