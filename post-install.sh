@@ -37,4 +37,7 @@ passwd krushn
 # Setup display manager
 systemctl enable sddm.service
 
+# Enable services
+systemctl enable NetworkManager.service
+
 echo "Configuration done. You can now exit chroot."
